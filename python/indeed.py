@@ -5,9 +5,8 @@ from bs4 import BeautifulSoup
 LIMIT = 50
 INDEED_URL = f"https://kr.indeed.com/%EC%B7%A8%EC%97%85?q=python&limit={LIMIT}"
 
-def extract_indeed_pages():
+def get_indeed_pages():
     indeed_result = requests.get(INDEED_URL)
-
     indeed_soup = BeautifulSoup(indeed_result.text, 'html.parser')
 
     #print(indeed_soup.title)
@@ -17,30 +16,49 @@ def extract_indeed_pages():
     spans = []
     for page in pages[0:-1]:
         spans.append(int(page.find("span").string))
-    #spans = spans[0:-1]
 
-    last_page = spans[-1]
-    return last_page
-    #print(last_page) 마지막 숫자를 출력
+
+    last_page = spans[-1] +1
+    return int(last_page)
+    #print(last_page) #마지막 숫자를 출력
     #print(spans)
     #print(range(last_page))  range함수는 ()안의 숫자만크 배열을 만들어준다
+
+def extract_job(html):
+    title = html.find("div",{"class" : "title"}).find('a')["title"]
+    company = html.find("span",{"class":"company"})
+    company_anchor = company.find("a")
+    if company_anchor is not None:
+        company = str(company_anchor.string)
+    else :
+        company = str(company.string)
+    company = company.strip()
+    location = html.find("div",{"class" : "recJobLoc"})["data-rc-loc"]
+    job_id = html["data-jk"]
+
+    return {
+        'title' : title,
+        'company' : company, 
+        'location': location,
+        "link": f"https://www.indeed.com/viewjob?jk={job_id}"
+        }
 
 
 def extract_indeed_jobs(last_page):
     jobs = []
-    #for page in range(last_page):
-    result = requests.get(f"{INDEED_URL}&start = {0*LIMIT}")
-    soup = BeautifulSoup(result.text, 'html.parser')
-    results = soup.find_all("div",{"class" : "jobsearch-SerpJobCard"})
-    for result in results : 
-        title = result.find("div",{"class" : "title"}).find('a')["title"]
-        #company = result.find("div",{"class" : "sjcl"}).find("span", {"class" : "company"})
-        company = result.find("span",{"class":"company"})
-        company_anchor = company.find("a")
-        if company_anchor is not None:
-            company = str(company_anchor.string)
-        else :
-            company = str(company.string)
-        company = company.strip()
-        print(title,company)
+    for page in range(last_page):
+        result = requests.get(f"{INDEED_URL}&start={page*LIMIT}")
+        soup = BeautifulSoup(result.text, 'html.parser')
+        results = soup.find_all("div",{"class" : "jobsearch-SerpJobCard"})
+        print(f"현재 페이지 출력 {page+1}")
+        for result in results : 
+            job = extract_job(result)
+            jobs.append(job)
     return jobs
+
+def get_jobs():
+    last_page = get_indeed_pages()
+    jobs = extract_indeed_jobs(last_page)
+    return jobs
+
+
